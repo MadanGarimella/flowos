@@ -1,0 +1,80 @@
+package com.officeflow.service;
+
+import com.officeflow.model.AppUser;
+import com.officeflow.model.Project;
+import com.officeflow.model.ProjectMemberRole;
+import com.officeflow.model.Task;
+import com.officeflow.repository.ProjectMemberRepository;
+import com.officeflow.repository.TaskRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+public class AccessService {
+    private final ProjectMemberRepository memberRepository;
+    private final TaskRepository taskRepository;
+    private final AdminAccessService adminAccessService;
+
+    public AccessService(ProjectMemberRepository memberRepository, TaskRepository taskRepository, AdminAccessService adminAccessService) {
+        this.memberRepository = memberRepository;
+        this.taskRepository = taskRepository;
+        this.adminAccessService = adminAccessService;
+    }
+
+    public boolean isAdmin(AppUser user) {
+        return adminAccessService.isAdmin(user);
+    }
+
+    public boolean isTeamLead(AppUser user, Long projectId) {
+        return memberRepository.existsByProjectIdAndUserIdAndRole(projectId, user.getId(), ProjectMemberRole.TEAM_LEAD);
+    }
+
+    public boolean isProjectMember(AppUser user, Long projectId) {
+        return memberRepository.existsByProjectIdAndUserId(projectId, user.getId());
+    }
+
+    public boolean canViewProject(AppUser user, Project project) {
+        return isAdmin(user)
+                || isProjectMember(user, project.getId())
+                || taskRepository.existsByProjectIdAndAssigneeId(project.getId(), user.getId());
+    }
+
+    public boolean canViewTask(AppUser user, Task task) {
+        return isAdmin(user)
+                || isTeamLead(user, task.getProject().getId())
+                || (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId()));
+    }
+
+    public boolean canManageTasks(AppUser user) {
+        return isAdmin(user);
+    }
+
+    public boolean canManageProjectMembers(AppUser user, Long projectId) {
+        return isAdmin(user) || isTeamLead(user, projectId);
+    }
+
+    public void requireProjectView(AppUser user, Project project) {
+        if (!canViewProject(user, project)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this project");
+        }
+    }
+
+    public void requireTaskView(AppUser user, Task task) {
+        if (!canViewTask(user, task)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this task");
+        }
+    }
+
+    public void requireTaskManagement(AppUser user) {
+        if (!canManageTasks(user)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only admins can create or assign tasks");
+        }
+    }
+
+    public void requireProjectMemberManagement(AppUser user, Long projectId) {
+        if (!canManageProjectMembers(user, projectId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only admins and project team leads can manage project members");
+        }
+    }
+}

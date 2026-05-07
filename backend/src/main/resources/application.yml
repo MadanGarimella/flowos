@@ -1,0 +1,21 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: officeflow
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/officeflow?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:password}
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  token-secret: ${APP_TOKEN_SECRET:dev-officeflow-secret-change-me}
+  cors-origins: ${APP_CORS_ORIGINS:http://localhost:5173,http://localhost:5174}
