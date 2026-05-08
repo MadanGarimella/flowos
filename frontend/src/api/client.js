@@ -1,4 +1,4 @@
-export const API_URL = "http://72.61.241.195:8080";
+export const API_URL = "https://retained-antiques-walk-anonymous.trycloudflare.com";
 
 export async function request(path, options, token) {
   const headers = {
