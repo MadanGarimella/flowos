@@ -19,6 +19,7 @@ const ADMIN_EMAILS = new Set([
   "madan.garimella@sathyasoftechin.com",
   "vishnu.ippili@sathyasoftechin.com",
   "sathyareddy.md@sathyasoftechin.com",
+  "nikhil.p@sathyasoftechin.com",
 ]);
 
 export function WorkspacePage({ session, onLogout }) {

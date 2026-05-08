@@ -67,13 +67,14 @@ cd backend
 mvn spring-boot:run
 ```
 
-The API runs at `http://localhost:8080`.
+The API runs at `https://retained-antiques-walk-anonymous.trycloudflare.com`.
 
 Ask users to create an account from the Signup page. Admin access is granted only to these office emails:
 
 - `madan.garimella@sathyasoftechin.com`
 - `vishnu.ippili@sathyasoftechin.com`
 - `sathyareddy.md@sathyasoftechin.com`
+- `nikhil.p@sathyasoftechin.com`
 
 Admin users can add team members, create projects, assign tasks, and manage project access from the Team section. Selecting a user in the Team section lets an admin grant `Project member`, `Team lead`, or `No access` for the currently selected project. Project Team Leads can manage members for that project.
 

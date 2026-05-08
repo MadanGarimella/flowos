@@ -10,7 +10,8 @@ public class AdminAccessService {
     private static final Set<String> ADMIN_EMAILS = Set.of(
             "madan.garimella@sathyasoftechin.com",
             "vishnu.ippili@sathyasoftechin.com",
-            "sathyareddy.md@sathyasoftechin.com"
+            "sathyareddy.md@sathyasoftechin.com",
+            "nikhil.p@sathyasoftechin.com"
     );
 
     public boolean isAdminEmail(String email) {
