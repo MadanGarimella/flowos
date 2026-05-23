@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, FolderPlus, LogOut, Plus, RefreshCw, Search, UserPlus, UserRound } from "lucide-react";
+import { ClipboardList, FolderPlus, LayoutDashboard, ListChecks, LogOut, Plus, RefreshCw, Search, UserPlus, UserRound } from "lucide-react";
 import { statuses } from "../constants/workflow";
 import { useApi } from "../hooks/useApi";
 import { startOfToday } from "../utils/date";
@@ -12,22 +12,17 @@ import { EmptyBlock } from "../components/common/EmptyBlock";
 import { Metric } from "../components/common/Metric";
 import { CreateTaskModal } from "../components/modals/CreateTaskModal";
 import { CreateProjectModal } from "../components/modals/CreateProjectModal";
-import { CreateUserModal } from "../components/modals/CreateUserModal";
+import { CreateInvitationModal } from "../components/modals/CreateInvitationModal";
 import { ProjectAccessModal } from "../components/modals/ProjectAccessModal";
-
-const ADMIN_EMAILS = new Set([
-  "madan.garimella@sathyasoftechin.com",
-  "vishnu.ippili@sathyasoftechin.com",
-  "sathyareddy.md@sathyasoftechin.com",
-  "nikhil.p@sathyasoftechin.com",
-]);
 
 export function WorkspacePage({ session, onLogout }) {
   const api = useApi(session.token);
-  const isAllowedAdmin = session.user.role === "ADMIN" && ADMIN_EMAILS.has(session.user.email?.toLowerCase());
-  const canManageProjects = isAllowedAdmin;
-  const canManageTasks = isAllowedAdmin;
+  const isAllowedAdmin = session.user.role === "ADMIN";
+  const isManager = session.user.role === "MANAGER";
+  const canManageProjects = isAllowedAdmin || isManager;
+  const canManageTasks = isAllowedAdmin || isManager;
   const canManageUsers = isAllowedAdmin;
+  const [view, setView] = useState("summary");
   const [projects, setProjects] = useState([]);
   const [users, setUsers] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -38,6 +33,7 @@ export function WorkspacePage({ session, onLogout }) {
   const [selectedAccessUser, setSelectedAccessUser] = useState(null);
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState(null);
+  const [invitationLink, setInvitationLink] = useState("");
   const [draggingTaskId, setDraggingTaskId] = useState(null);
   const [dragOverStatus, setDragOverStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +56,7 @@ export function WorkspacePage({ session, onLogout }) {
       setProjects(projectData);
       setUsers(userData);
       setSelectedProjectId((current) => current ?? projectData[0]?.id ?? null);
-    }).catch(() => {});
+    }).catch(() => { });
     setLoading(false);
   }
 
@@ -71,7 +67,7 @@ export function WorkspacePage({ session, onLogout }) {
     }
     await run(async () => {
       setTasks(await api.get(`/api/projects/${projectId}/tasks`));
-    }).catch(() => {});
+    }).catch(() => { });
   }
 
   async function loadTaskDetail(taskId) {
@@ -81,7 +77,7 @@ export function WorkspacePage({ session, onLogout }) {
     }
     await run(async () => {
       setTaskDetail(await api.get(`/api/tasks/${taskId}`));
-    }).catch(() => {});
+    }).catch(() => { });
   }
 
   async function loadProjectMembers(projectId = selectedProjectId) {
@@ -92,7 +88,7 @@ export function WorkspacePage({ session, onLogout }) {
     await run(async () => {
       const data = await api.get(`/api/projects/${projectId}/members`);
       setProjectMembers(data.members ?? []);
-    }).catch(() => {});
+    }).catch(() => { });
   }
 
   useEffect(() => {
@@ -162,11 +158,10 @@ export function WorkspacePage({ session, onLogout }) {
     });
   }
 
-  async function createUser(payload) {
+  async function createInvitation(payload) {
     await run(async () => {
-      await api.post("/api/users", payload);
-      setModal(null);
-      await loadBase();
+      const data = await api.post("/api/invitations", payload);
+      setInvitationLink(data.invitationLink);
     });
   }
 
@@ -207,7 +202,7 @@ export function WorkspacePage({ session, onLogout }) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="grid h-11 w-11 shrink-0 place-items-center bg-ocean text-white shadow-sm">
-              <ClipboardList size={21} />
+                <ClipboardList size={21} />
               </div>
               <div className="min-w-0">
                 <p className="text-xl font-semibold">OfficeFlow</p>
@@ -226,7 +221,7 @@ export function WorkspacePage({ session, onLogout }) {
             </div>
             <button className="button-secondary" onClick={refreshAll} title="Refresh"><RefreshCw size={17} /></button>
             {canManageProjects && <button className="button-secondary" onClick={() => setModal("project")}><FolderPlus size={17} /> Project</button>}
-            {canManageUsers && <button className="button-secondary" onClick={() => setModal("user")}><UserPlus size={17} /> Member</button>}
+            {canManageUsers && <button className="button-secondary" onClick={() => { setInvitationLink(""); setModal("invite"); }}><UserPlus size={17} /> Invite</button>}
             {canManageTasks && <button className="button-primary" onClick={() => setModal("task")} disabled={!selectedProjectId}><Plus size={17} /> Task</button>}
             <button className="button-secondary" onClick={onLogout} title="Sign out"><LogOut size={17} /></button>
           </div>
@@ -259,7 +254,7 @@ export function WorkspacePage({ session, onLogout }) {
           <div className="mt-6">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Team</p>
-              {canManageUsers && <button className="icon-button" onClick={() => setModal("user")} title="Add team member"><UserPlus size={16} /></button>}
+              {canManageUsers && <button className="icon-button" onClick={() => { setInvitationLink(""); setModal("invite"); }} title="Invite team member"><UserPlus size={16} /></button>}
             </div>
             <div className="space-y-2">
               {users.map((user) => (
@@ -277,7 +272,7 @@ export function WorkspacePage({ session, onLogout }) {
                       <p className="truncate font-medium">{user.name}</p>
                       <ProjectAccessBadge role={projectMembers.find((member) => member.user?.id === user.id)?.role} />
                     </div>
-                    <p className="truncate text-xs text-slate-500">{user.designation || user.role} · {user.email}</p>
+                    <p className="truncate text-xs text-slate-500">{user.designation || user.role} - {user.email}</p>
                   </div>
                 </button>
               ))}
@@ -298,34 +293,87 @@ export function WorkspacePage({ session, onLogout }) {
             </div>
           ) : (
             <div className="min-w-0">
-              <BoardOverview project={project} metrics={metrics} totalTasks={tasks.length} activeMembers={activeMembers} />
-              <div className="mt-5 overflow-x-auto pb-2">
-                <div className="grid min-w-[900px] grid-cols-4 gap-4 xl:min-w-0">
-                  {statuses.map((status) => (
-                    <TaskColumn
-                      key={status}
-                      status={status}
-                      tasks={filteredTasks.filter((task) => task.status === status)}
-                      onSelect={setSelectedTaskId}
-                      selectedTaskId={selectedTaskId}
-                      draggingTaskId={draggingTaskId}
-                      dragOverStatus={dragOverStatus}
-                      onDragStart={(taskId) => setDraggingTaskId(taskId)}
-                      onDragEnd={() => {
-                        setDraggingTaskId(null);
-                        setDragOverStatus(null);
-                      }}
-                      onDragOver={(nextStatus) => setDragOverStatus(nextStatus)}
-                      onDrop={async (nextStatus) => {
-                        const taskId = draggingTaskId;
-                        setDraggingTaskId(null);
-                        setDragOverStatus(null);
-                        if (taskId) await moveTask(taskId, nextStatus);
-                      }}
-                    />
-                  ))}
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="inline-flex border border-slate-300 bg-white p-1">
+                  <button className={`segmented-button ${view === "summary" ? "segmented-button-active" : ""}`} onClick={() => setView("summary")}><LayoutDashboard size={15} className="inline" /> Summary</button>
+                  <button className={`segmented-button ${view === "list" ? "segmented-button-active" : ""}`} onClick={() => setView("list")}><ListChecks size={15} className="inline" /> List</button>
+                  <button className={`segmented-button ${view === "board" ? "segmented-button-active" : ""}`} onClick={() => setView("board")}><ClipboardList size={15} className="inline" /> Board</button>
                 </div>
               </div>
+              {view === "summary" && (
+                <div className="space-y-5">
+                  <BoardOverview project={project} metrics={metrics} totalTasks={tasks.length} activeMembers={activeMembers} />
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {statuses.map((status) => (
+                      <div key={status} className="border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold">{status.replace("_", " ")}</p>
+                          <span className="text-2xl font-semibold">{filteredTasks.filter((task) => task.status === status).length}</span>
+                        </div>
+                        <div className="mt-3 h-2 bg-slate-100">
+                          <div className="h-2 bg-ocean" style={{ width: `${tasks.length ? (filteredTasks.filter((task) => task.status === status).length / tasks.length) * 100 : 0}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {view === "list" && (
+                <div className="overflow-x-auto border border-slate-200 bg-white shadow-sm">
+                  <table className="w-full min-w-[760px] text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3">Task</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Priority</th>
+                        <th className="px-4 py-3">Assignee</th>
+                        <th className="px-4 py-3">Due</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTasks.map((task) => (
+                        <tr key={task.id} className="cursor-pointer border-t border-slate-100 hover:bg-ocean/5" onClick={() => setSelectedTaskId(task.id)}>
+                          <td className="px-4 py-3 font-medium">{task.title}</td>
+                          <td className="px-4 py-3">{task.status.replace("_", " ")}</td>
+                          <td className="px-4 py-3">{task.priority}</td>
+                          <td className="px-4 py-3">{task.assignee?.name ?? "Unassigned"}</td>
+                          <td className="px-4 py-3">{task.dueDate ?? "No date"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {!filteredTasks.length && <div className="p-4"><EmptyBlock text="No tasks match this view." /></div>}
+                </div>
+              )}
+              {view === "board" && (
+                <div className="overflow-x-auto pb-2">
+                  <div className="grid min-w-[900px] grid-cols-4 gap-4 xl:min-w-0">
+                    {statuses.map((status) => (
+                      <TaskColumn
+                        key={status}
+                        status={status}
+                        tasks={filteredTasks.filter((task) => task.status === status)}
+                        onSelect={setSelectedTaskId}
+                        selectedTaskId={selectedTaskId}
+                        draggingTaskId={draggingTaskId}
+                        dragOverStatus={dragOverStatus}
+                        onDragStart={(taskId) => setDraggingTaskId(taskId)}
+                        onDragEnd={() => {
+                          setDraggingTaskId(null);
+                          setDragOverStatus(null);
+                        }}
+                        onDragOver={(nextStatus) => setDragOverStatus(nextStatus)}
+                        onDrop={async (nextStatus) => {
+                          const taskId = draggingTaskId;
+                          setDraggingTaskId(null);
+                          setDragOverStatus(null);
+                          if (taskId) await moveTask(taskId, nextStatus);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>
@@ -348,8 +396,8 @@ export function WorkspacePage({ session, onLogout }) {
       {modal === "project" && (
         <CreateProjectModal onClose={() => setModal(null)} onCreate={createProject} />
       )}
-      {modal === "user" && (
-        <CreateUserModal onClose={() => setModal(null)} onCreate={createUser} />
+      {modal === "invite" && (
+        <CreateInvitationModal invitationLink={invitationLink} onClose={() => setModal(null)} onCreate={createInvitation} />
       )}
       {selectedAccessUser && (
         <ProjectAccessModal

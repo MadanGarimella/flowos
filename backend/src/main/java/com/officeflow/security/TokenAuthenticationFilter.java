@@ -32,8 +32,8 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             try {
-                String email = tokenService.readEmail(header.substring(7));
-                userRepository.findByEmail(email).filter(user -> user.isActive()).ifPresent(user -> {
+                Long userId = tokenService.readUserId(header.substring(7));
+                userRepository.findById(userId).filter(user -> user.isActive()).ifPresent(user -> {
                     String role = adminAccessService.isAdmin(user) ? "ADMIN" : user.getRole().name();
                     var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
                     var authentication = new UsernamePasswordAuthenticationToken(user, null, authorities);

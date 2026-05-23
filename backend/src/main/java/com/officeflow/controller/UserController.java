@@ -10,7 +10,7 @@ import com.officeflow.model.UserRole;
 import com.officeflow.repository.AppUserRepository;
 import com.officeflow.repository.ProjectMemberRepository;
 import com.officeflow.repository.TaskRepository;
-import com.officeflow.service.AdminAccessService;
+import com.officeflow.service.CurrentUserService;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -32,40 +32,43 @@ public class UserController {
     private final TaskRepository taskRepository;
     private final ProjectMemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
-    private final AdminAccessService adminAccessService;
+    private final CurrentUserService currentUserService;
 
     public UserController(
             AppUserRepository userRepository,
             TaskRepository taskRepository,
             ProjectMemberRepository memberRepository,
             PasswordEncoder passwordEncoder,
-            AdminAccessService adminAccessService) {
+            CurrentUserService currentUserService) {
         this.userRepository = userRepository;
         this.taskRepository = taskRepository;
         this.memberRepository = memberRepository;
         this.passwordEncoder = passwordEncoder;
-        this.adminAccessService = adminAccessService;
+        this.currentUserService = currentUserService;
     }
 
     @GetMapping
     public List<AppUser> list() {
-        return userRepository.findByActiveTrueOrderByNameAsc();
+        AppUser currentUser = currentUserService.get();
+        return userRepository.findByOrganizationIdAndActiveTrueOrderByNameAsc(currentUser.getOrganization().getId());
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN')")
     public AppUser create(@Valid @RequestBody CreateUserRequest request) {
+        AppUser currentUser = currentUserService.get();
         String email = normalizeEmail(request.email());
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByOrganizationIdAndEmail(currentUser.getOrganization().getId(), email)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A user with this email already exists");
         }
 
         AppUser user = new AppUser();
+        user.setOrganization(currentUser.getOrganization());
         user.setName(request.name());
         user.setDesignation(request.designation());
         user.setEmail(email);
-        user.setRole(adminAccessService.isAdminEmail(email) ? UserRole.ADMIN : UserRole.MEMBER);
+        user.setRole(request.role() == null ? UserRole.MEMBER : request.role());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         return userRepository.save(user);
     }
@@ -75,12 +78,13 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public Object offboard(@PathVariable Long userId, @RequestBody OffboardUserRequest request) {
         AppUser leavingUser = userRepository.findById(userId)
+                .filter(candidate -> candidate.getOrganization().getId().equals(currentUserService.get().getOrganization().getId()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if (!leavingUser.isActive()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User is already inactive");
         }
 
-        List<Task> assignedTasks = taskRepository.findByAssigneeId(userId);
+        List<Task> assignedTasks = taskRepository.findByProjectOrganizationIdAndAssigneeId(leavingUser.getOrganization().getId(), userId);
         AppUser replacement = null;
         if (!assignedTasks.isEmpty()) {
             if (request == null || request.reassignToUserId() == null) {
@@ -90,6 +94,7 @@ public class UserController {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Replacement user must be different");
             }
             replacement = userRepository.findById(request.reassignToUserId())
+                    .filter(candidate -> candidate.getOrganization().getId().equals(leavingUser.getOrganization().getId()))
                     .filter(AppUser::isActive)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Replacement user not found"));
             for (Task task : assignedTasks) {
@@ -99,7 +104,7 @@ public class UserController {
             taskRepository.saveAll(assignedTasks);
         }
 
-        memberRepository.findByUserId(userId).forEach(memberRepository::delete);
+        memberRepository.findByProjectOrganizationIdAndUserId(leavingUser.getOrganization().getId(), userId).forEach(memberRepository::delete);
         leavingUser.setActive(false);
         userRepository.save(leavingUser);
         return java.util.Map.of("message", "User removed from active team", "reassignedTasks", assignedTasks.size());

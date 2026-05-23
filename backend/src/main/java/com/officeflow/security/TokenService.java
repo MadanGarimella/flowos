@@ -19,13 +19,13 @@ public class TokenService {
 
     public String createToken(AppUser user) {
         long expiresAt = Instant.now().plusSeconds(60L * 60 * 12).getEpochSecond();
-        String payload = user.getEmail() + ":" + expiresAt;
+        String payload = user.getId() + ":" + expiresAt;
         String encodedPayload = Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(payload.getBytes(StandardCharsets.UTF_8));
         return encodedPayload + "." + sign(encodedPayload);
     }
 
-    public String readEmail(String token) {
+    public Long readUserId(String token) {
         String[] parts = token.split("\\.");
         if (parts.length != 2 || !sign(parts[0]).equals(parts[1])) {
             throw new IllegalArgumentException("Invalid token");
@@ -42,7 +42,7 @@ public class TokenService {
             throw new IllegalArgumentException("Expired token");
         }
 
-        return payload.substring(0, separator);
+        return Long.parseLong(payload.substring(0, separator));
     }
 
     private String sign(String value) {
@@ -55,4 +55,3 @@ public class TokenService {
         }
     }
 }
-

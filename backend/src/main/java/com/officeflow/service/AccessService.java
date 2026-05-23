@@ -27,7 +27,7 @@ public class AccessService {
     }
 
     public boolean isTeamLead(AppUser user, Long projectId) {
-        return memberRepository.existsByProjectIdAndUserIdAndRole(projectId, user.getId(), ProjectMemberRole.TEAM_LEAD);
+        return user != null && memberRepository.existsByProjectIdAndUserIdAndRole(projectId, user.getId(), ProjectMemberRole.TEAM_LEAD);
     }
 
     public boolean isProjectMember(AppUser user, Long projectId) {
@@ -35,23 +35,35 @@ public class AccessService {
     }
 
     public boolean canViewProject(AppUser user, Project project) {
-        return isAdmin(user)
+        return sameOrganization(user, project)
+                && (isAdmin(user)
                 || isProjectMember(user, project.getId())
-                || taskRepository.existsByProjectIdAndAssigneeId(project.getId(), user.getId());
+                || taskRepository.existsByProjectIdAndAssigneeId(project.getId(), user.getId()));
     }
 
     public boolean canViewTask(AppUser user, Task task) {
-        return isAdmin(user)
+        return sameOrganization(user, task.getProject())
+                && (isAdmin(user)
                 || isTeamLead(user, task.getProject().getId())
-                || (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId()));
+                || (task.getAssignee() != null && task.getAssignee().getId().equals(user.getId())));
     }
 
     public boolean canManageTasks(AppUser user) {
-        return isAdmin(user);
+        return user != null
+                && user.isActive()
+                && (user.getRole() == com.officeflow.model.UserRole.ADMIN || user.getRole() == com.officeflow.model.UserRole.MANAGER);
     }
 
     public boolean canManageProjectMembers(AppUser user, Long projectId) {
         return isAdmin(user) || isTeamLead(user, projectId);
+    }
+
+    public boolean sameOrganization(AppUser user, Project project) {
+        return user != null
+                && project != null
+                && user.getOrganization() != null
+                && project.getOrganization() != null
+                && user.getOrganization().getId().equals(project.getOrganization().getId());
     }
 
     public void requireProjectView(AppUser user, Project project) {

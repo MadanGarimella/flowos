@@ -72,7 +72,7 @@ export function TaskPanel({ detail, users, open, canManageTasks, onClose, onUpda
             {comments.map((item) => (
               <div key={item.id} className="border border-slate-200 p-3">
                 <p className="text-sm">{item.body}</p>
-                <p className="mt-2 text-xs text-slate-500">{item.author?.name} · {formatDate(item.createdAt)}</p>
+                <p className="mt-2 text-xs text-slate-500">{item.author?.name} - {formatDate(item.createdAt)}</p>
               </div>
             ))}
             {!comments.length && <EmptyBlock text="No comments yet." />}

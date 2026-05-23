@@ -1,4 +1,4 @@
-export const API_URL = "https://retained-antiques-walk-anonymous.trycloudflare.com";
+export const API_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 
 export async function request(path, options, token) {
   const headers = {

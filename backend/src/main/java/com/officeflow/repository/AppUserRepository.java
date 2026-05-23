@@ -6,7 +6,8 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AppUserRepository extends JpaRepository<AppUser, Long> {
-    Optional<AppUser> findByEmail(String email);
-    boolean existsByEmail(String email);
-    List<AppUser> findByActiveTrueOrderByNameAsc();
+    Optional<AppUser> findByOrganizationSlugAndEmail(String slug, String email);
+    Optional<AppUser> findByOrganizationIdAndId(Long organizationId, Long id);
+    boolean existsByOrganizationIdAndEmail(Long organizationId, String email);
+    List<AppUser> findByOrganizationIdAndActiveTrueOrderByNameAsc(Long organizationId);
 }

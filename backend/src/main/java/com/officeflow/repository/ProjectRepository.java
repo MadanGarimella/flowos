@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ProjectRepository extends JpaRepository<Project, Long> {
-    @Query("select distinct p from Project p join Task t on t.project = p where t.assignee.id = :userId")
-    List<Project> findAssignedProjects(@Param("userId") Long userId);
+    List<Project> findByOrganizationIdOrderByCreatedAtDesc(Long organizationId);
+
+    @Query("select distinct p from Project p join Task t on t.project = p where p.organization.id = :organizationId and t.assignee.id = :userId")
+    List<Project> findAssignedProjects(@Param("organizationId") Long organizationId, @Param("userId") Long userId);
 }

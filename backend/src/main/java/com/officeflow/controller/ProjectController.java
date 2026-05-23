@@ -65,21 +65,23 @@ public class ProjectController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public Project create(@Valid @RequestBody CreateProjectRequest request) {
+        AppUser owner = currentUserService.get();
         Project project = new Project();
         project.setName(request.name());
         project.setDescription(request.description());
-        project.setOwner(currentUserService.get());
+        project.setOrganization(owner.getOrganization());
+        project.setOwner(owner);
         Project saved = projectRepository.save(project);
-        upsertProjectMember(saved, currentUserService.get(), com.officeflow.model.ProjectMemberRole.TEAM_LEAD);
+        upsertProjectMember(saved, owner, com.officeflow.model.ProjectMemberRole.TEAM_LEAD);
         return saved;
     }
 
     @GetMapping("/{projectId}/tasks")
     public Object tasks(@PathVariable Long projectId) {
         AppUser user = currentUserService.get();
-        Project project = projectRepository.findById(projectId).orElseThrow(() -> new EntityNotFoundException("Project not found"));
+        Project project = findProjectForUser(projectId, user);
         accessService.requireProjectView(user, project);
         return accessService.isAdmin(user) || accessService.isTeamLead(user, projectId)
                 ? taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId)
@@ -89,7 +91,7 @@ public class ProjectController {
     @GetMapping("/{projectId}/members")
     public ProjectMembersResponse members(@PathVariable Long projectId) {
         AppUser user = currentUserService.get();
-        Project project = projectRepository.findById(projectId).orElseThrow(() -> new EntityNotFoundException("Project not found"));
+        Project project = findProjectForUser(projectId, user);
         accessService.requireProjectView(user, project);
         return new ProjectMembersResponse(memberRepository.findByProjectIdOrderByUserNameAsc(projectId));
     }
@@ -98,8 +100,8 @@ public class ProjectController {
     public ProjectMember addMember(@PathVariable Long projectId, @Valid @RequestBody ProjectMemberRequest request) {
         AppUser user = currentUserService.get();
         accessService.requireProjectMemberManagement(user, projectId);
-        Project project = projectRepository.findById(projectId).orElseThrow(() -> new EntityNotFoundException("Project not found"));
-        AppUser member = userRepository.findById(request.userId()).orElseThrow(() -> new EntityNotFoundException("User not found"));
+        Project project = findProjectForUser(projectId, user);
+        AppUser member = userRepository.findByOrganizationIdAndId(user.getOrganization().getId(), request.userId()).orElseThrow(() -> new EntityNotFoundException("User not found"));
         return upsertProjectMember(project, member, request.role());
     }
 
@@ -107,8 +109,8 @@ public class ProjectController {
     public ProjectMember updateMember(@PathVariable Long projectId, @PathVariable Long userId, @Valid @RequestBody ProjectMemberRequest request) {
         AppUser user = currentUserService.get();
         accessService.requireProjectMemberManagement(user, projectId);
-        Project project = projectRepository.findById(projectId).orElseThrow(() -> new EntityNotFoundException("Project not found"));
-        AppUser member = userRepository.findById(userId).orElseThrow(() -> new EntityNotFoundException("User not found"));
+        Project project = findProjectForUser(projectId, user);
+        AppUser member = userRepository.findByOrganizationIdAndId(user.getOrganization().getId(), userId).orElseThrow(() -> new EntityNotFoundException("User not found"));
         return upsertProjectMember(project, member, request.role());
     }
 
@@ -117,6 +119,7 @@ public class ProjectController {
     public void removeMember(@PathVariable Long projectId, @PathVariable Long userId) {
         AppUser user = currentUserService.get();
         accessService.requireProjectMemberManagement(user, projectId);
+        findProjectForUser(projectId, user);
         memberRepository.findByProjectIdAndUserId(projectId, userId).ifPresent(memberRepository::delete);
     }
 
@@ -142,13 +145,21 @@ public class ProjectController {
 
     private List<Project> visibleProjects(AppUser user) {
         if (accessService.isAdmin(user)) {
-            return projectRepository.findAll();
+            return projectRepository.findByOrganizationIdOrderByCreatedAtDesc(user.getOrganization().getId());
         }
 
         Map<Long, Project> projects = new LinkedHashMap<>();
-        memberRepository.findProjectsByUserId(user.getId()).forEach(project -> projects.put(project.getId(), project));
-        projectRepository.findAssignedProjects(user.getId()).forEach(project -> projects.put(project.getId(), project));
+        memberRepository.findProjectsByUserId(user.getOrganization().getId(), user.getId()).forEach(project -> projects.put(project.getId(), project));
+        projectRepository.findAssignedProjects(user.getOrganization().getId(), user.getId()).forEach(project -> projects.put(project.getId(), project));
         return List.copyOf(projects.values());
+    }
+
+    private Project findProjectForUser(Long projectId, AppUser user) {
+        Project project = projectRepository.findById(projectId).orElseThrow(() -> new EntityNotFoundException("Project not found"));
+        if (!project.getOrganization().getId().equals(user.getOrganization().getId())) {
+            throw new EntityNotFoundException("Project not found");
+        }
+        return project;
     }
 
     private ProjectMember upsertProjectMember(Project project, AppUser user, com.officeflow.model.ProjectMemberRole role) {

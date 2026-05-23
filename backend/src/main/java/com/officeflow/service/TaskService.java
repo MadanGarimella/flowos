@@ -49,9 +49,12 @@ public class TaskService {
         task.setTitle(request.title());
         task.setDescription(request.description());
         Project project = projectRepository.findById(request.projectId()).orElseThrow(() -> new EntityNotFoundException("Project not found"));
+        if (!project.getOrganization().getId().equals(reporter.getOrganization().getId())) {
+            throw new EntityNotFoundException("Project not found");
+        }
         task.setProject(project);
         task.setReporter(reporter);
-        task.setAssignee(findUser(request.assigneeId()));
+        task.setAssignee(findUser(request.assigneeId(), reporter));
         task.setPriority(request.priority() == null ? TaskPriority.MEDIUM : request.priority());
         task.setDueDate(request.dueDate());
         Task saved = taskRepository.save(task);
@@ -82,7 +85,7 @@ public class TaskService {
             task.setPriority(request.priority());
         }
         if (request.assigneeId() != null && manager) {
-            task.setAssignee(findUser(request.assigneeId()));
+            task.setAssignee(findUser(request.assigneeId(), actor));
             ensureProjectMember(task.getProject(), task.getAssignee(), ProjectMemberRole.MEMBER);
         }
         if (request.dueDate() != null && manager) {
@@ -104,11 +107,12 @@ public class TaskService {
         activityRepository.save(activity);
     }
 
-    private AppUser findUser(Long userId) {
+    private AppUser findUser(Long userId, AppUser actor) {
         if (userId == null) {
             return null;
         }
-        return userRepository.findById(userId).orElseThrow(() -> new EntityNotFoundException("User not found"));
+        return userRepository.findByOrganizationIdAndId(actor.getOrganization().getId(), userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
     }
 
     private void ensureProjectMember(Project project, AppUser user, ProjectMemberRole role) {
