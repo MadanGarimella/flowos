@@ -169,7 +169,7 @@ export function LoginPage({ inviteToken, onLogin }) {
       window.history.replaceState({}, "", "/");
       onLogin(data);
     } catch (err) {
-      setError(err.message === "Failed to fetch" ? "Backend is not reachable. Check that Spring Boot is running." : err.message);
+      setError(err.message === "Failed to fetch" ? "Backend is not reachable. " : err.message);
     } finally {
       setLoading(false);
     }
