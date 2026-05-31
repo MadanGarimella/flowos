@@ -2,20 +2,11 @@ import { useEffect, useState } from "react";
 import { LoginPage } from "./pages/LoginPage";
 import { WorkspacePage } from "./pages/WorkspacePage";
 import { API_URL } from "./api/client";
+import { clearStoredSession, hasStoredToken, loadStoredSession, saveStoredUser } from "./utils/sessionStorage";
 
 export default function App() {
-  const [checkingSession, setCheckingSession] = useState(() => Boolean(localStorage.getItem("officeflow_token")));
-  const [session, setSession] = useState(() => {
-    const token = localStorage.getItem("officeflow_token");
-    const user = localStorage.getItem("officeflow_user");
-    try {
-      return token && user ? { token, user: JSON.parse(user) } : null;
-    } catch {
-      localStorage.removeItem("officeflow_token");
-      localStorage.removeItem("officeflow_user");
-      return null;
-    }
-  });
+  const [checkingSession, setCheckingSession] = useState(hasStoredToken);
+  const [session, setSession] = useState(loadStoredSession);
 
   useEffect(() => {
     if (!session?.token) {
@@ -31,12 +22,11 @@ export default function App() {
         return response.json();
       })
       .then((user) => {
-        localStorage.setItem("officeflow_user", JSON.stringify(user));
+        saveStoredUser(user);
         setSession((current) => current ? { ...current, user } : current);
       })
       .catch(() => {
-        localStorage.removeItem("officeflow_token");
-        localStorage.removeItem("officeflow_user");
+        clearStoredSession();
         setSession(null);
       })
       .finally(() => setCheckingSession(false));
@@ -57,8 +47,7 @@ export default function App() {
     <WorkspacePage
       session={session}
       onLogout={() => {
-        localStorage.removeItem("officeflow_token");
-        localStorage.removeItem("officeflow_user");
+        clearStoredSession();
         setSession(null);
       }}
     />

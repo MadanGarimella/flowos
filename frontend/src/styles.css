@@ -153,4 +153,12 @@
   .overview-metric {
     @apply min-w-0 border border-slate-200 bg-slate-50 px-4 py-3 text-center;
   }
+
+  .project-meta-pill {
+    @apply border border-slate-200 bg-slate-50 px-2 py-1;
+  }
+
+  .task-meta-pill {
+    @apply border border-slate-200 bg-slate-50 px-2 py-1;
+  }
 }

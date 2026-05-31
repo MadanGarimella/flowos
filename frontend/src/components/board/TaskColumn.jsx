@@ -1,5 +1,5 @@
 import { CalendarDays } from "lucide-react";
-import { statusLabels, statuses } from "../../constants/workflow";
+import { approvalStages, deliverableTypes, optionLabel, statusLabels } from "../../constants/workflow";
 import { EmptyBlock } from "../common/EmptyBlock";
 import { PriorityBadge } from "../badges/PriorityBadge";
 
@@ -56,6 +56,10 @@ export function TaskColumn({
               <PriorityBadge priority={task.priority} />
             </div>
             <p className="mt-3 line-clamp-2 text-xs leading-5 text-slate-500">{task.description || "No description provided."}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold text-slate-500">
+              <span className="task-meta-pill">{optionLabel(deliverableTypes, task.deliverableType)}</span>
+              <span className="task-meta-pill">{optionLabel(approvalStages, task.approvalStage)}</span>
+            </div>
             <div className="mt-4 flex items-center justify-between gap-2 text-xs text-slate-500">
               <span className="truncate">{task.assignee?.name ?? "Unassigned"}</span>
               <span className="flex shrink-0 items-center gap-1"><CalendarDays size={13} /> {task.dueDate ?? "No date"}</span>

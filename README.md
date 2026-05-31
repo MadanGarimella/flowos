@@ -1,135 +1,179 @@
-# OfficeFlow
+# FlowOS
 
-OfficeFlow is an internal task management platform for assigning, tracking, and monitoring office team work. It is built as a monorepo:
+FlowOS is a multi-tenant work operating system for teams across industries. It helps organizations manage projects, recurring operations, tasks, access, approvals, deadlines, audit history, and team accountability from one workspace.
 
-- `backend`: Java 21+, Spring Boot, Spring Security, Spring Data JPA, MySQL
-- `frontend`: React, Vite, Tailwind CSS
+## Stack
 
-## Product Features
+- Frontend: React, Vite, Tailwind CSS
+- Backend: Java 21+, Spring Boot, Spring Security, Spring Data JPA
+- Database: MySQL
 
-- Organization registration with the first user becoming the organization admin
+## Current Product Features
+
+- Organization registration with the first user becoming organization admin
 - Organization-scoped login using workspace slug, email, and password
-- Tenant isolation across users, projects, tasks, comments, activity, and project membership
-- Admin-created invitation links for adding users to an organization
-- Role-aware users: admin, manager, member
-- Manager/admin project creation and task management
-- Project list with live task counts
-- Workflow views for Summary, List, and Board
-- Project-level member access: admins can promote a project user to Team Lead; Team Leads can manage members for that project
-- Task assignment, priority, status, due dates, descriptions, comments, and activity history
-
-## Frontend Structure
-
-- `frontend/src/pages`: route-level screens such as login and workspace
-- `frontend/src/components`: reusable UI grouped by feature
-- `frontend/src/components/board`: task board, columns, and task detail drawer
-- `frontend/src/components/modals`: create/edit/access dialogs
-- `frontend/src/components/common`: shared form controls and small UI blocks
-- `frontend/src/components/badges`: small status/role badges
-- `frontend/src/api`: API base URL and request helper
-- `frontend/src/hooks`: React hooks such as authenticated API access
-- `frontend/src/constants`: shared workflow constants
-- `frontend/src/utils`: formatting/date helpers
-- `frontend/src/assets`: static frontend assets
+- Invitation-only onboarding for existing workspaces
+- Tenant isolation across users, projects, tasks, comments, activity, audit logs, and memberships
+- Roles: admin, manager, member, and project Team Lead
+- Cross-sector organization categories and project types
+- Projects with client/department, confidentiality, billing model, and reference ID
+- Tasks with assignment, priority, status, due date, deliverable type, approval stage, target/compliance date, and estimated hours
+- Project file sharing with authenticated upload, download, and controlled deletion
+- Clickable company directory profiles from the workspace sidebar
+- Summary, list, board, drag-and-drop workflow, comments, and task activity
+- User offboarding with task reassignment
+- Admin-only organization audit trail
+- Health endpoint for field testing and deployment checks
 
 ## Local Setup
-
-### MySQL
 
 Create a database:
 
 ```sql
-CREATE DATABASE officeflow CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE flowos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-Or start the included local MySQL container:
+Or use Docker:
 
 ```powershell
 docker compose up -d mysql
 ```
 
-Set these environment variables if your local MySQL values differ from the defaults:
-
-```powershell
-$env:DB_URL="jdbc:mysql://localhost:3306/officeflow?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
-$env:DB_USERNAME="root"
-$env:DB_PASSWORD="password"
-$env:APP_TOKEN_SECRET="replace-this-with-a-long-random-secret"
-$env:SERVER_PORT="8080"
-```
-
-### Backend
+Start backend:
 
 ```powershell
 cd backend
+$env:DB_PASSWORD="your-password"
+$env:APP_TOKEN_SECRET="replace-this-with-a-long-random-secret"
+$env:APP_CORS_ORIGINS="http://localhost:5173,http://192.168.93.1:5173"
 .\mvnw.cmd spring-boot:run
 ```
 
-The API runs at `http://localhost:8080`.
-
-If port `8080` is already in use, set `SERVER_PORT` to another port and update `VITE_API_URL` in the frontend when you are not using the Vite proxy.
-
-The unauthenticated entry flow starts by asking for the organization name:
-
-1. If the organization does not exist, the user is sent to organization registration and must assign the first admin account.
-2. If the organization exists, the user is sent to member signup for that organization, then asked to sign in.
-3. Existing users can sign in with workspace slug, email, and password.
-4. Admin invitation links still work through `/invite/{token}` for controlled onboarding.
-
-The first account in each organization becomes its admin. Admins can invite team members from the app and share the generated invitation link.
-
-Admins can invite members and manage organization access. Admins and managers can create projects and assign tasks. Selecting a user in the Team section lets an admin or project Team Lead grant `Project member`, `Team lead`, or `No access` for the currently selected project.
-
-### Frontend
+Start frontend:
 
 ```powershell
 cd frontend
-npm install
-npm run dev
-```
-
-The app runs at `http://localhost:5173`.
-
-If PowerShell blocks `npm`, use `npm.cmd`:
-
-```powershell
+$env:VITE_API_MODE="local"
+$env:VITE_ALLOWED_HOSTS="all"
 npm.cmd install
 npm.cmd run dev
 ```
 
-## Production Deployment
+Open:
 
-Backend production checklist:
+```text
+http://localhost:5173
+```
 
-- Set `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` for the production MySQL database.
-- Set a long random `APP_TOKEN_SECRET`.
-- Set `APP_CORS_ORIGINS` to the deployed frontend origin.
-- Use `JPA_DDL_AUTO=update` for first deployment, then move to `validate` once the schema is stable.
-- Run `mvn package -DskipTests` and deploy `backend/target/officeflow-backend-0.0.1-SNAPSHOT.jar`.
+LAN testing:
 
-Frontend production checklist:
+```text
+http://<your-lan-ip>:5173
+http://<your-lan-ip>:8080/api/health
+```
 
-- Set `VITE_API_URL` to the deployed backend URL, or leave it empty when the frontend and backend are served behind the same origin or reverse proxy.
-- Run `npm.cmd run build`.
-- Deploy the generated `frontend/dist` folder.
+## Production Build
 
-No demo users or seed projects are created by the code.
+Backend:
+
+```powershell
+cd backend
+.\mvnw.cmd clean package -DskipTests
+```
+
+Artifact:
+
+```text
+backend/target/flowos-backend-0.0.1-SNAPSHOT.jar
+```
+
+Frontend:
+
+```powershell
+cd frontend
+$env:VITE_API_MODE="remote"
+$env:VITE_API_URL="https://api.your-domain.com"
+npm.cmd run build
+```
+
+Deploy:
+
+```text
+frontend/dist
+```
+
+## Production Environment
+
+Required backend settings:
+
+```text
+DB_URL
+DB_USERNAME
+DB_PASSWORD
+APP_TOKEN_SECRET
+APP_CORS_ORIGINS
+APP_OPEN_MEMBER_SIGNUP=false
+APP_UPLOAD_DIR=/var/lib/flowos/uploads
+MAX_FILE_SIZE=25MB
+MAX_REQUEST_SIZE=25MB
+JPA_DDL_AUTO=validate
+SERVER_PORT
+```
+
+Required frontend settings:
+
+```text
+VITE_API_MODE=remote
+VITE_API_URL=https://api.your-domain.com
+```
+
+## Operational Requirements
+
+Before customer onboarding:
+
+- Use HTTPS for frontend and backend.
+- Store secrets in the deployment platform, never in source control.
+- Configure automated MySQL backups and tested restore procedures.
+- Mount `APP_UPLOAD_DIR` on persistent storage and include it in backup procedures.
+- Configure uptime monitoring for `/api/health`.
+- Restrict CORS to deployed frontend origins.
+- Keep open member signup disabled.
+- Configure SMTP before enabling email invitations and password-reset flows.
+- Review [Migration Guide](docs/MIGRATION_GUIDE.md).
+- Review [Production Readiness](docs/PRODUCTION_READINESS.md).
+- Track future modules in [Enterprise Roadmap](docs/ENTERPRISE_ROADMAP.md).
 
 ## API Overview
 
+- `GET /api/health`
 - `POST /api/auth/login`
 - `POST /api/auth/signup`
-- `POST /api/auth/member-signup`
 - `GET /api/auth/invites/{token}`
 - `POST /api/auth/invites/signup`
+- `GET /api/auth/me`
 - `GET /api/organizations/lookup?name={organizationName}`
 - `GET /api/invitations`
 - `POST /api/invitations`
 - `GET /api/users`
+- `POST /api/users/{userId}/offboard`
 - `GET /api/projects`
 - `POST /api/projects`
 - `GET /api/projects/{projectId}/tasks`
+- `GET /api/projects/{projectId}/members`
+- `GET /api/projects/{projectId}/files`
+- `POST /api/projects/{projectId}/files`
+- `GET /api/files/{fileId}/download`
+- `DELETE /api/files/{fileId}`
 - `POST /api/tasks`
 - `GET /api/tasks/{taskId}`
 - `PATCH /api/tasks/{taskId}`
 - `POST /api/tasks/{taskId}/comments`
+- `GET /api/audit`
+
+## Brand
+
+FlowOS uses the official FlowOS logo stored at:
+
+```text
+frontend/public/flowos-logo.png
+```

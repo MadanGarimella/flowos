@@ -21,7 +21,7 @@ export class ErrorBoundary extends Component {
           <div className="max-w-md border border-slate-200 bg-white p-6 text-center shadow-sm">
             <h1 className="text-xl font-semibold">Something went wrong</h1>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Please refresh the page. If this continues, contact your OfficeFlow administrator.
+              Please refresh the page. If this continues, contact your FlowOS administrator.
             </p>
             <button className="button-primary mt-5" onClick={() => window.location.reload()}>
               Refresh
@@ -34,4 +34,3 @@ export class ErrorBoundary extends Component {
     return this.props.children;
   }
 }
-

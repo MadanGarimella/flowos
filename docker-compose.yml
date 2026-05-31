@@ -1,15 +1,15 @@
 services:
   mysql:
     image: mysql:8.4
-    container_name: officeflow-mysql
+    container_name: flowos-mysql
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: officeflow
+      MYSQL_DATABASE: flowos
       MYSQL_ROOT_PASSWORD: password
     ports:
       - "3306:3306"
     volumes:
-      - officeflow-mysql-data:/var/lib/mysql
+      - flowos-mysql-data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-ppassword"]
       interval: 10s
@@ -17,5 +17,4 @@ services:
       retries: 10
 
 volumes:
-  officeflow-mysql-data:
-
+  flowos-mysql-data:

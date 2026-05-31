@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, FolderPlus, LayoutDashboard, ListChecks, LogOut, Plus, RefreshCw, Search, UserPlus, UserRound } from "lucide-react";
+import { ClipboardList, FileClock, FolderPlus, LayoutDashboard, ListChecks, LogOut, Paperclip, Plus, RefreshCw, Search, UserPlus, UserRound } from "lucide-react";
 import { statuses } from "../constants/workflow";
 import { useApi } from "../hooks/useApi";
 import { startOfToday } from "../utils/date";
@@ -8,12 +8,15 @@ import { TaskPanel } from "../components/board/TaskPanel";
 import { BoardOverview } from "../components/dashboard/BoardOverview";
 import { ProjectAccessBadge } from "../components/badges/ProjectAccessBadge";
 import { UserProfileBadge } from "../components/layout/UserProfileBadge";
+import { BrandLogo } from "../components/layout/BrandLogo";
 import { EmptyBlock } from "../components/common/EmptyBlock";
 import { Metric } from "../components/common/Metric";
 import { CreateTaskModal } from "../components/modals/CreateTaskModal";
 import { CreateProjectModal } from "../components/modals/CreateProjectModal";
 import { CreateInvitationModal } from "../components/modals/CreateInvitationModal";
 import { ProjectAccessModal } from "../components/modals/ProjectAccessModal";
+import { UserProfileModal } from "../components/modals/UserProfileModal";
+import { ProjectFiles } from "../components/files/ProjectFiles";
 
 export function WorkspacePage({ session, onLogout }) {
   const api = useApi(session.token);
@@ -26,11 +29,14 @@ export function WorkspacePage({ session, onLogout }) {
   const [projects, setProjects] = useState([]);
   const [users, setUsers] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [taskDetail, setTaskDetail] = useState(null);
   const [projectMembers, setProjectMembers] = useState([]);
+  const [projectFiles, setProjectFiles] = useState([]);
   const [selectedAccessUser, setSelectedAccessUser] = useState(null);
+  const [selectedProfileUser, setSelectedProfileUser] = useState(null);
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState(null);
   const [invitationLink, setInvitationLink] = useState("");
@@ -91,6 +97,26 @@ export function WorkspacePage({ session, onLogout }) {
     }).catch(() => { });
   }
 
+  async function loadProjectFiles(projectId = selectedProjectId) {
+    if (!projectId) {
+      setProjectFiles([]);
+      return;
+    }
+    await run(async () => {
+      setProjectFiles(await api.get(`/api/projects/${projectId}/files`));
+    }).catch(() => { });
+  }
+
+  async function loadAuditLogs() {
+    if (!isAllowedAdmin) {
+      setAuditLogs([]);
+      return;
+    }
+    await run(async () => {
+      setAuditLogs(await api.get("/api/audit"));
+    }).catch(() => { });
+  }
+
   useEffect(() => {
     loadBase();
   }, []);
@@ -98,6 +124,7 @@ export function WorkspacePage({ session, onLogout }) {
   useEffect(() => {
     loadTasks();
     loadProjectMembers();
+    loadProjectFiles();
     setSelectedTaskId(null);
   }, [selectedProjectId]);
 
@@ -110,7 +137,10 @@ export function WorkspacePage({ session, onLogout }) {
   const canManageProjectMembers = isAllowedAdmin || currentProjectRole === "TEAM_LEAD";
   const filteredTasks = tasks.filter((task) => {
     const value = query.toLowerCase();
-    return task.title.toLowerCase().includes(value) || (task.assignee?.name ?? "").toLowerCase().includes(value);
+    return task.title.toLowerCase().includes(value)
+      || (task.assignee?.name ?? "").toLowerCase().includes(value)
+      || (project?.clientName ?? "").toLowerCase().includes(value)
+      || (project?.externalReference ?? "").toLowerCase().includes(value);
   });
   const metrics = useMemo(() => ({
     open: tasks.filter((task) => task.status !== "DONE").length,
@@ -123,6 +153,8 @@ export function WorkspacePage({ session, onLogout }) {
     await loadBase();
     await loadTasks();
     await loadProjectMembers();
+    await loadProjectFiles();
+    if (isAllowedAdmin) await loadAuditLogs();
     if (selectedTaskId) await loadTaskDetail(selectedTaskId);
   }
 
@@ -162,6 +194,7 @@ export function WorkspacePage({ session, onLogout }) {
     await run(async () => {
       const data = await api.post("/api/invitations", payload);
       setInvitationLink(data.invitationLink);
+      await loadAuditLogs();
     });
   }
 
@@ -175,6 +208,7 @@ export function WorkspacePage({ session, onLogout }) {
       setSelectedAccessUser(null);
       await loadProjectMembers();
       await loadBase();
+      await loadAuditLogs();
     });
   }
 
@@ -185,6 +219,7 @@ export function WorkspacePage({ session, onLogout }) {
       await loadBase();
       await loadTasks();
       await loadProjectMembers();
+      await loadAuditLogs();
     });
   }
 
@@ -195,30 +230,54 @@ export function WorkspacePage({ session, onLogout }) {
     });
   }
 
+  async function uploadProjectFile(file) {
+    await run(async () => {
+      const data = new FormData();
+      data.append("file", file);
+      await api.upload(`/api/projects/${selectedProjectId}/files`, data);
+      await loadProjectFiles();
+    });
+  }
+
+  async function downloadProjectFile(file) {
+    await run(async () => {
+      const blob = await api.download(`/api/files/${file.id}/download`);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.originalName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  async function deleteProjectFile(file) {
+    if (!window.confirm(`Delete ${file.originalName}?`)) return;
+    await run(async () => {
+      await api.delete(`/api/files/${file.id}`);
+      await loadProjectFiles();
+    });
+  }
+
   return (
     <main className="min-h-screen bg-[#f4f7f6] text-ink">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-3 px-5 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="grid h-11 w-11 shrink-0 place-items-center bg-ocean text-white shadow-sm">
-                <ClipboardList size={21} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xl font-semibold">OfficeFlow</p>
-                <div className="mt-0.5 flex min-w-0 items-center gap-2 text-sm text-slate-500">
-                  <span className="truncate">{project?.name ?? "Create a project to begin"}</span>
-                  {currentProjectRole && <span className="shrink-0 bg-ocean/10 px-2 py-0.5 text-xs font-semibold text-ocean">{currentProjectRole === "TEAM_LEAD" ? "Team Lead" : "Member"}</span>}
-                </div>
+            <div className="flex min-w-0 items-center">
+              <div className="relative w-[200px] h-[20px] overflow-visible">
+                <img
+                  src="/flowos-logo.png"
+                  alt="FlowOS"
+                  className="absolute left-14 mt-10 w-auto h-[100px] -translate-y-1/2 object-contain scale-[2]"
+                />
               </div>
             </div>
             <UserProfileBadge user={session.user} />
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className="relative min-w-[240px] flex-1 md:max-w-xl">
-              <Search className="pointer-events-none absolute left-3 top-2.5 text-slate-400" size={17} />
-              <input className="h-10 w-full border border-slate-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-ocean" placeholder="Search title or assignee" value={query} onChange={(event) => setQuery(event.target.value)} />
-            </div>
             <button className="button-secondary" onClick={refreshAll} title="Refresh"><RefreshCw size={17} /></button>
             {canManageProjects && <button className="button-secondary" onClick={() => setModal("project")}><FolderPlus size={17} /> Project</button>}
             {canManageUsers && <button className="button-secondary" onClick={() => { setInvitationLink(""); setModal("invite"); }}><UserPlus size={17} /> Invite</button>}
@@ -260,11 +319,9 @@ export function WorkspacePage({ session, onLogout }) {
               {users.map((user) => (
                 <button
                   key={user.id}
-                  className={`team-user ${canManageProjectMembers && selectedProjectId ? "team-user-actionable" : ""}`}
-                  onClick={() => {
-                    if (canManageProjectMembers && selectedProjectId) setSelectedAccessUser(user);
-                  }}
-                  title={canManageProjectMembers && selectedProjectId ? "Manage project access" : undefined}
+                  className="team-user team-user-actionable"
+                  onClick={() => setSelectedProfileUser(user)}
+                  title="View team profile"
                 >
                   <div className="grid h-8 w-8 place-items-center bg-slate-100 text-slate-600"><UserRound size={15} /></div>
                   <div className="min-w-0">
@@ -298,6 +355,8 @@ export function WorkspacePage({ session, onLogout }) {
                   <button className={`segmented-button ${view === "summary" ? "segmented-button-active" : ""}`} onClick={() => setView("summary")}><LayoutDashboard size={15} className="inline" /> Summary</button>
                   <button className={`segmented-button ${view === "list" ? "segmented-button-active" : ""}`} onClick={() => setView("list")}><ListChecks size={15} className="inline" /> List</button>
                   <button className={`segmented-button ${view === "board" ? "segmented-button-active" : ""}`} onClick={() => setView("board")}><ClipboardList size={15} className="inline" /> Board</button>
+                  <button className={`segmented-button ${view === "files" ? "segmented-button-active" : ""}`} onClick={() => setView("files")}><Paperclip size={15} className="inline" /> Files</button>
+                  {isAllowedAdmin && <button className={`segmented-button ${view === "audit" ? "segmented-button-active" : ""}`} onClick={() => { setView("audit"); loadAuditLogs(); }}><FileClock size={15} className="inline" /> Audit</button>}
                 </div>
               </div>
               {view === "summary" && (
@@ -326,6 +385,8 @@ export function WorkspacePage({ session, onLogout }) {
                         <th className="px-4 py-3">Task</th>
                         <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3">Priority</th>
+                        <th className="px-4 py-3">Deliverable</th>
+                        <th className="px-4 py-3">Approval</th>
                         <th className="px-4 py-3">Assignee</th>
                         <th className="px-4 py-3">Due</th>
                       </tr>
@@ -336,6 +397,8 @@ export function WorkspacePage({ session, onLogout }) {
                           <td className="px-4 py-3 font-medium">{task.title}</td>
                           <td className="px-4 py-3">{task.status.replace("_", " ")}</td>
                           <td className="px-4 py-3">{task.priority}</td>
+                          <td className="px-4 py-3">{task.deliverableType?.replaceAll("_", " ") ?? "GENERAL"}</td>
+                          <td className="px-4 py-3">{task.approvalStage?.replaceAll("_", " ") ?? "NOT REQUIRED"}</td>
                           <td className="px-4 py-3">{task.assignee?.name ?? "Unassigned"}</td>
                           <td className="px-4 py-3">{task.dueDate ?? "No date"}</td>
                         </tr>
@@ -374,6 +437,40 @@ export function WorkspacePage({ session, onLogout }) {
                   </div>
                 </div>
               )}
+              {view === "files" && (
+                <ProjectFiles
+                  files={projectFiles}
+                  currentUser={session.user}
+                  canManageFiles={isAllowedAdmin || currentProjectRole === "TEAM_LEAD"}
+                  onUpload={uploadProjectFile}
+                  onDownload={downloadProjectFile}
+                  onDelete={deleteProjectFile}
+                />
+              )}
+              {view === "audit" && isAllowedAdmin && (
+                <div className="border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-100 p-4">
+                    <h2 className="text-sm font-semibold">Organization audit trail</h2>
+                    <p className="mt-1 text-xs text-slate-500">Latest 100 admin and access events for this workspace.</p>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {auditLogs.map((log) => (
+                      <div key={log.id} className="grid gap-2 p-4 text-sm md:grid-cols-[180px_minmax(0,1fr)_220px]">
+                        <div className="font-semibold text-ink">{log.action}</div>
+                        <div className="min-w-0 text-slate-600">
+                          <p>{log.detail}</p>
+                          <p className="mt-1 text-xs text-slate-400">{log.targetType} #{log.targetId ?? "-"}</p>
+                        </div>
+                        <div className="text-xs text-slate-500 md:text-right">
+                          <p>{log.actor?.name ?? "System"}</p>
+                          <p>{log.createdAt ? new Date(log.createdAt).toLocaleString() : ""}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {!auditLogs.length && <div className="p-4"><EmptyBlock text="No audit activity yet." /></div>}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>
@@ -409,6 +506,18 @@ export function WorkspacePage({ session, onLogout }) {
           onClose={() => setSelectedAccessUser(null)}
           onSave={(role) => updateProjectAccess(selectedAccessUser.id, role)}
           onOffboard={(replacementUserId) => offboardUser(selectedAccessUser.id, replacementUserId)}
+        />
+      )}
+      {selectedProfileUser && (
+        <UserProfileModal
+          user={selectedProfileUser}
+          projectRole={projectMembers.find((member) => member.user?.id === selectedProfileUser.id)?.role}
+          canManageAccess={Boolean(canManageProjectMembers && selectedProjectId)}
+          onClose={() => setSelectedProfileUser(null)}
+          onManageAccess={() => {
+            setSelectedProfileUser(null);
+            setSelectedAccessUser(selectedProfileUser);
+          }}
         />
       )}
     </main>

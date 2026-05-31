@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Building2, CheckCircle2, ClipboardList, RefreshCw, UserPlus } from "lucide-react";
+import { ArrowLeft, Building2, CheckCircle2, RefreshCw, UserPlus } from "lucide-react";
 import { API_URL } from "../api/client";
-import { TextInput } from "../components/common/Inputs";
+import { BRAND_LOGO_URL } from "../constants/brand";
+import { SelectInput, TextInput } from "../components/common/Inputs";
+import { BrandLogo } from "../components/layout/BrandLogo";
+import { organizationIndustries } from "../constants/workflow";
+import { saveStoredSession } from "../utils/sessionStorage";
 
 export function LoginPage({ inviteToken, onLogin }) {
   const [page, setPage] = useState(inviteToken ? "invite" : "organization");
@@ -11,6 +15,7 @@ export function LoginPage({ inviteToken, onLogin }) {
   const [login, setLogin] = useState({ organizationSlug: "", email: "", password: "" });
   const [adminSignup, setAdminSignup] = useState({
     organizationName: "",
+    industry: "GENERAL_BUSINESS",
     name: "",
     designation: "",
     email: "",
@@ -56,7 +61,8 @@ export function LoginPage({ inviteToken, onLogin }) {
       setOrganization(data);
       if (data.exists) {
         setLogin((current) => ({ ...current, organizationSlug: data.slug }));
-        setPage("member-signup");
+        setNotice(`Workspace found. Sign in with your account, or ask your admin for an invitation.`);
+        setPage("login");
       } else {
         setAdminSignup((current) => ({ ...current, organizationName: data.name || organizationName }));
         setPage("organization-register");
@@ -138,8 +144,7 @@ export function LoginPage({ inviteToken, onLogin }) {
         throw new Error(body.message ?? "Invalid email or password");
       }
       const data = await response.json();
-      localStorage.setItem("officeflow_token", data.token);
-      localStorage.setItem("officeflow_user", JSON.stringify(data.user));
+      saveStoredSession(data);
       onLogin(data);
     } catch (err) {
       setError(err.message === "Failed to fetch" ? "Backend is not reachable. Check that Spring Boot is running." : err.message);
@@ -164,8 +169,7 @@ export function LoginPage({ inviteToken, onLogin }) {
         throw new Error(body.message ?? "Could not join organization");
       }
       const data = await response.json();
-      localStorage.setItem("officeflow_token", data.token);
-      localStorage.setItem("officeflow_user", JSON.stringify(data.user));
+      saveStoredSession(data);
       window.history.replaceState({}, "", "/");
       onLogin(data);
     } catch (err) {
@@ -184,17 +188,23 @@ export function LoginPage({ inviteToken, onLogin }) {
   return (
     <main className="min-h-screen bg-paper text-ink">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="flex items-center px-6 py-10 sm:px-12 lg:px-20">
-          <div className="w-full max-w-xl">
-            <BrandHeader />
-            {page !== "organization" && !inviteToken && (
+        <section className="h-screen overflow-y-auto px-6 py-10 sm:px-12 lg:px-20">
+          <div className="w-full max-w-xl mt-16">
+            <div className="relative w-[200px] h-[20px] overflow-visible">
+              <img
+                src="/flowos-logo.png"
+                alt="FlowOS"
+                className="absolute left-14 mt-10 w-auto h-[150px] -translate-y-1/2 object-contain scale-[2]"
+              />
+            </div>
+            {/* {page !== "organization" && !inviteToken && (
               <button type="button" className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-ocean" onClick={goBack}>
                 <ArrowLeft size={16} /> Change organization
               </button>
-            )}
+            )} */}
 
             {page === "organization" && (
-              <form onSubmit={checkOrganization} className="max-w-md space-y-5">
+              <form onSubmit={checkOrganization} className="max-w-md space-y-5 mt-20">
                 <div>
                   <h2 className="text-2xl font-semibold">Enter your organization</h2>
                   <p className="mt-2 text-sm leading-6 text-slate-500">We will check whether your workspace already exists and guide you to the right setup.</p>
@@ -211,10 +221,11 @@ export function LoginPage({ inviteToken, onLogin }) {
             {page === "organization-register" && (
               <form onSubmit={registerOrganization} className="max-w-md space-y-4">
                 <div>
-                  <h2 className="text-2xl font-semibold">Register organization</h2>
+                  <h2 className="text-2xl font-semibold mt-16">Register organization</h2>
                   <p className="mt-2 text-sm leading-6 text-slate-500">This is the first account for this organization. Assign an admin to monitor projects, tasks, and members.</p>
                 </div>
                 <TextInput label="Organization name" value={adminSignup.organizationName} onChange={(value) => setAdminSignup({ ...adminSignup, organizationName: value })} required />
+                <SelectInput label="Primary business" value={adminSignup.industry} onChange={(value) => setAdminSignup({ ...adminSignup, industry: value })} options={organizationIndustries} />
                 <TextInput label="Admin name" value={adminSignup.name} onChange={(value) => setAdminSignup({ ...adminSignup, name: value })} required />
                 <TextInput label="Admin designation" value={adminSignup.designation} onChange={(value) => setAdminSignup({ ...adminSignup, designation: value })} required />
                 <TextInput label="Admin email" type="email" value={adminSignup.email} onChange={(value) => setAdminSignup({ ...adminSignup, email: value })} required />
@@ -251,7 +262,7 @@ export function LoginPage({ inviteToken, onLogin }) {
             {page === "login" && (
               <form onSubmit={submitLogin} className="max-w-md space-y-5">
                 <div>
-                  <h2 className="text-2xl font-semibold">Sign in</h2>
+                  <h2 className="text-2xl font-semibold mt-14">Sign in</h2>
                   <p className="mt-2 text-sm leading-6 text-slate-500">Use your workspace slug, email, and password to continue.</p>
                 </div>
                 <TextInput label="Workspace" value={login.organizationSlug} onChange={(value) => setLogin({ ...login, organizationSlug: value })} required />
@@ -269,7 +280,7 @@ export function LoginPage({ inviteToken, onLogin }) {
             {page === "invite" && (
               <form onSubmit={submitInviteSignup} className="max-w-md space-y-4">
                 <div>
-                  <h2 className="text-2xl font-semibold">Accept invitation</h2>
+                  <h2 className="text-2xl font-semibold mt-14">Accept invitation</h2>
                   <p className="mt-2 text-sm leading-6 text-slate-500">{invite ? `${invite.organizationName} invited ${invite.email}` : "Loading invitation..."}</p>
                 </div>
                 <TextInput label="Name" value={inviteSignup.name} onChange={(value) => setInviteSignup({ ...inviteSignup, name: value })} required />
@@ -286,19 +297,34 @@ export function LoginPage({ inviteToken, onLogin }) {
           </div>
         </section>
 
-        <section className="hidden bg-ink text-white lg:block">
-          <div className="flex h-full flex-col justify-between p-12">
-            <div className="grid grid-cols-2 gap-4">
-              {["Organizations", "Projects", "Tasks", "Teams"].map((label) => (
+        <section className="hidden h-screen bg-ink text-white lg:sticky lg:top-0 lg:flex lg:items-center lg:justify-center">
+          <div className="w-full max-w-2xl px-12">
+
+            {/* Logo */}
+            <div className="relative w-[200px] h-[20px] overflow-visible mt-10">
+              <img
+                src="/logo3.png"
+                alt="FlowOS"
+                className="absolute left-14 w-auto h-[130px] -translate-y-1/2 object-contain scale-[2]"
+              />
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 gap-4 mt-20">
+              {["Organizations", "Projects", "Tasks", "Teams", "Collaborations"].map((label) => (
                 <div key={label} className="border border-white/15 p-5">
                   <p className="text-sm text-white/60">{label}</p>
-                  <p className="mt-8 text-2xl font-semibold">Ready</p>
+                  {/* <p className="mt-6 text-2xl font-semibold">Ready</p> */}
                 </div>
               ))}
             </div>
-            <p className="max-w-md text-2xl font-medium leading-snug">
-              Separate every organization, invite the right people, and keep work visible from summary to board.
+
+            {/* Description */}
+            <p className="max-w-xl text-2xl font-medium leading-snug text-white mt-10">
+              Run projects, operations, approvals, teams, deadlines, and client work
+              from one controlled workspace.
             </p>
+
           </div>
         </section>
       </div>
@@ -308,14 +334,8 @@ export function LoginPage({ inviteToken, onLogin }) {
 
 function BrandHeader() {
   return (
-    <div className="mb-10 flex items-center gap-3">
-      <div className="grid h-11 w-11 place-items-center bg-ocean text-white">
-        <ClipboardList size={22} />
-      </div>
-      <div>
-        <h1 className="text-3xl font-semibold tracking-normal">OfficeFlow</h1>
-        <p className="text-sm text-slate-600">Organization work control desk</p>
-      </div>
+    <div className="mb-[-50px]">
+      <BrandLogo />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { MessageSquare, Plus, X } from "lucide-react";
-import { statusLabels, statuses } from "../../constants/workflow";
+import { approvalStages, deliverableTypes, optionLabel, statusLabels, statuses } from "../../constants/workflow";
 import { formatDate } from "../../utils/date";
 import { EmptyBlock } from "../common/EmptyBlock";
 import { PriorityBadge } from "../badges/PriorityBadge";
@@ -39,6 +39,27 @@ export function TaskPanel({ detail, users, open, canManageTasks, onClose, onUpda
         </div>
 
         <p className="mt-4 text-sm leading-6 text-slate-600">{task.description || "No description provided."}</p>
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="panel-field">
+            <span>Deliverable</span>
+            <p className="text-sm font-medium">{optionLabel(deliverableTypes, task.deliverableType)}</p>
+          </div>
+          <label className="panel-field">
+            <span>Approval</span>
+            <select value={task.approvalStage ?? "NOT_REQUIRED"} onChange={(event) => onUpdate({ approvalStage: event.target.value })}>
+              {approvalStages.map((stage) => <option key={stage.value} value={stage.value}>{stage.label}</option>)}
+            </select>
+          </label>
+          <div className="panel-field">
+            <span>Target / compliance date</span>
+            <p className="text-sm font-medium">{task.complianceDate ?? "Not set"}</p>
+          </div>
+          <div className="panel-field">
+            <span>Estimated hours</span>
+            <p className="text-sm font-medium">{task.estimatedHours ?? "Not set"}</p>
+          </div>
+        </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
           <label className="panel-field">

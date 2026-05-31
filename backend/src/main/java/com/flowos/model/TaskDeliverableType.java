@@ -1,0 +1,31 @@
+package com.flowos.model;
+
+public enum TaskDeliverableType {
+    GENERAL,
+    DOCUMENT,
+    APPROVAL,
+    FOLLOW_UP,
+    MEETING,
+    RESEARCH,
+    ANALYSIS,
+    DESIGN,
+    DEVELOPMENT,
+    TESTING,
+    DELIVERY,
+    SUPPORT,
+    TRAINING,
+    PROCUREMENT,
+    FINANCE_REVIEW,
+    HR_ACTION,
+    COMPLIANCE_CHECK,
+    SITE_WORK,
+    LEGAL_DRAFTING,
+    COURT_FILING,
+    HEARING_PREP,
+    CLIENT_REVIEW,
+    CREATIVE,
+    MEDIA_PLAN,
+    CONTENT,
+    CAMPAIGN_LAUNCH,
+    REPORTING
+}

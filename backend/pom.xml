@@ -11,11 +11,11 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.officeflow</groupId>
-    <artifactId>officeflow-backend</artifactId>
+    <groupId>com.flowos</groupId>
+    <artifactId>flowos-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>officeflow-backend</name>
-    <description>Internal task management platform backend</description>
+    <name>flowos-backend</name>
+    <description>FlowOS multi-tenant work operating system backend</description>
 
     <properties>
         <java.version>21</java.version>
@@ -59,4 +59,3 @@
         </plugins>
     </build>
 </project>
-
